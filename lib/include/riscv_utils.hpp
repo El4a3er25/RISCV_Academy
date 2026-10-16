@@ -4,6 +4,42 @@
 
 #include "image.hpp"
 #include "riscv_port.hpp"
+#include "box_filter_types.hpp"
+#include <algorithm>
+
+template <typename T>
+T GetPixel(const Image<T>& input, int32_t x, int32_t y, const BorderMode& border_mode) {
+    int32_t width = input.Width();
+    int32_t height = input.Height();
+
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+        return input.GetPixel(x, y);
+    }
+
+    switch (border_mode.policy) {
+        case BorderPolicy::REPLICATE: {
+            int32_t clamped_x = std::clamp(x, 0, width - 1);
+            int32_t clamped_y = std::clamp(y, 0, height - 1);
+            return input.GetPixel(clamped_x, clamped_y);
+        }
+        case BorderPolicy::CONSTANT: {
+            return static_cast<T>(border_mode.value);
+        }
+        case BorderPolicy::MIRROR: {
+            int32_t mirror_x = x;
+            int32_t mirror_y = y;
+            if (x < 0) mirror_x = -x;
+            else if (x >= width) mirror_x = 2 * width - 2 - x;
+            if (y < 0) mirror_y = -y;
+            else if (y >= height) mirror_y = 2 * height - 2 - y;
+            return input.GetPixel(mirror_x, mirror_y);
+        }
+        case BorderPolicy::NO_BORDER:
+        default:
+            return 0; 
+    }
+}
+
 
 // Compare two images pixel-by-pixel, printing the first few mismatches.
 template <typename T>
